@@ -18,6 +18,7 @@ export interface InventoryItem {
   amount: number | string;
   unit: string;
   notes: string;
+  density?: number | string;
 }
 
 export interface CustomReagent {

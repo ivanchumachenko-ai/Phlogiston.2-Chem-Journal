@@ -1,21 +1,21 @@
 {
-  "name": "ChemCalc",
-  "short_name": "ChemCalc",
+  "name": "Phlogiston",
+  "short_name": "Phlogiston",
   "description": "Офлайн-калькулятор реагентов для химиков-синтетиков",
   "theme_color": "#ffffff",
   "background_color": "#ffffff",
   "display": "standalone",
   "orientation": "portrait",
-  "scope": "/",
-  "start_url": "/",
+  "scope": "./",
+  "start_url": "./",
   "icons": [
     {
-      "src": "/favicon.png",
+      "src": "favicon.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/favicon.png",
+      "src": "favicon.png",
       "sizes": "512x512",
       "type": "image/png"
     }

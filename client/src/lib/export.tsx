@@ -1,3 +1,4 @@
+import type { ProcedureStyle } from "@/lib/textStyle";
 import { ChemicalProperties } from "./chemistry";
 
 import html2canvas from "html2canvas";
@@ -52,6 +53,7 @@ export interface SynthesisDetails {
   productMass: string;
   yield: string;
   procedure: string;
+  procedureStyle?: ProcedureStyle;
   reaction?: string;
   productSmiles?: string;
   productMolfile?: string;

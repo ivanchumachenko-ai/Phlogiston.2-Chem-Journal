@@ -92,7 +92,8 @@ function normalizeReactionSchemeData(scheme?: SynthesisDetails["reactionScheme"]
   };
 }
 
-import { FormatToolbar } from "@/components/FormatToolbar";
+import { ProcedureEditor } from "@/components/ProcedureEditor";
+import { DEFAULT_PROCEDURE_STYLE, normalizeProcedureStyle, type ProcedureStyle } from "@/lib/textStyle";
 
 export default function Home() {
   const [entries, setEntries] = useState<ReagentEntry[]>([]);
@@ -277,6 +278,8 @@ export default function Home() {
 
     setSynthYield(parsedDetails.yield || "");
     setSynthProcedure(parsedDetails.procedure || "");
+    setProcedureStyle(normalizeProcedureStyle(parsedDetails.procedureStyle));
+    setCustomSections(parsedDetails.customSections || []);
     setSynthReaction(parsedDetails.reaction || "");
     setSynthSmiles(parsedDetails.productSmiles || "");
     setSynthMolfile(parsedDetails.productMolfile || "");
@@ -416,7 +419,8 @@ export default function Home() {
     productMass: synthProductMass ? `${synthProductMass} ${synthProductMassUnit}` : "",
     yield: synthYield,
     procedure: synthProcedure,
-      customSections,
+    procedureStyle,
+    customSections,
     reaction: synthReaction,
     productSmiles: synthSmiles,
     productMolfile: synthMolfile,
@@ -480,6 +484,7 @@ export default function Home() {
     
     setSynthYield(synth.details.yield || "");
     setSynthProcedure(synth.details.procedure || "");
+    setProcedureStyle(normalizeProcedureStyle(synth.details.procedureStyle));
     setCustomSections(synth.details.customSections || []);
     setSynthReaction(synth.details.reaction || "");
     setSynthSmiles(synth.details.productSmiles || "");
@@ -519,6 +524,7 @@ export default function Home() {
     setSynthProductMass("");
     setSynthYield("");
     setSynthProcedure("");
+    setProcedureStyle(DEFAULT_PROCEDURE_STYLE);
     setCustomSections([]);
     setSynthReaction("");
     setSynthReactionScheme(emptyReactionScheme());
@@ -620,6 +626,7 @@ export default function Home() {
   const [synthProductMassUnit, setSynthProductMassUnit] = useState<"mg" | "g">("g");
   const [synthYield, setSynthYield] = useState("");
   const [synthProcedure, setSynthProcedure] = useState("");
+  const [procedureStyle, setProcedureStyle] = useState<ProcedureStyle>(DEFAULT_PROCEDURE_STYLE);
   const [customSections, setCustomSections] = useState<CustomSectionData[]>([]);
   const [synthReaction, setSynthReaction] = useState("");
   const [synthReactionScheme, setSynthReactionScheme] = useState<ReactionSchemeData>(emptyReactionScheme());
@@ -2361,21 +2368,15 @@ export default function Home() {
                     </div>
 
                     <div className="space-y-1.5 pt-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="synthProcedure" className="text-xs text-muted-foreground">{t('synthProcedure')}</Label>
-                        <FormatToolbar 
-                          elementId="synthProcedure" 
-                          value={synthProcedure} 
-                          onChange={setSynthProcedure} 
-                        />
-                      </div>
-                      <Textarea 
-                        id="synthProcedure" 
-                        placeholder={t('synthProcedurePlaceholder')} 
+                      <ProcedureEditor
+                        id="synthProcedure"
                         value={synthProcedure}
-                        onChange={(e) => setSynthProcedure(e.target.value)}
-                        className="min-h-[120px] resize-y text-sm"
-                        data-testid="textarea-synth-procedure"
+                        onChange={setSynthProcedure}
+                        style={procedureStyle}
+                        onStyleChange={setProcedureStyle}
+                        placeholder={t('synthProcedurePlaceholder')}
+                        lang={lang}
+                        label={<Label htmlFor="synthProcedure" className="text-xs text-muted-foreground">{t('synthProcedure')}</Label>}
                       />
                       
                       <CustomSectionManager 
