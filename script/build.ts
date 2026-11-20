@@ -37,7 +37,8 @@ async function buildAll() {
   await rm("dist", { recursive: true, force: true });
 
   console.log("building client...");
-  await viteBuild();
+  // Relative base: the same build works on GitHub Pages and from the offline ZIP
+  await viteBuild({ base: "./" });
 
   console.log("building server...");
   const pkg = JSON.parse(await readFile("package.json", "utf-8"));

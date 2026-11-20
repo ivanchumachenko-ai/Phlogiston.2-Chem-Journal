@@ -7,6 +7,11 @@ import { metaImagesPlugin } from "./vite-plugin-meta-images";
 import { VitePWA } from "vite-plugin-pwa";
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
+// Production builds use relative paths so the very same files work both on
+// GitHub Pages (/phlogiston-chem-journal/) and from the offline ZIP served at
+// the root of a local web server (python3 -m http.server).
+const isBuild = process.argv.includes("build") || process.env.PHLOGISTON_BUILD === "1";
+
 export default defineConfig({
   plugins: [
     react(),
@@ -32,16 +37,16 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/phlogiston-chem-journal/',
-        start_url: '/phlogiston-chem-journal/',
+        scope: './',
+        start_url: './',
         icons: [
           {
-            src: '/phlogiston-chem-journal/favicon.png',
+            src: 'favicon.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: '/phlogiston-chem-journal/favicon.png',
+            src: 'favicon.png',
             sizes: '512x512',
             type: 'image/png'
           }
@@ -49,7 +54,7 @@ export default defineConfig({
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 30000000,
-        navigateFallbackDenylist: [/^\/phlogiston\.zip$/],
+        navigateFallbackDenylist: [/phlogiston\.zip$/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/pubchem\.ncbi\.nlm\.nih\.gov\/rest\/pug\/compound\/cid\/.*\/PNG/,
@@ -92,7 +97,7 @@ export default defineConfig({
       plugins: [],
     },
   },
-  base: "/phlogiston-chem-journal/",
+  base: isBuild ? "./" : "/phlogiston-chem-journal/",
   root: path.resolve(import.meta.dirname, "client"),
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
