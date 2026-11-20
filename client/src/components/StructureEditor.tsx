@@ -90,9 +90,42 @@ async function lookupStructureName(smiles: string) {
   return null;
 }
 
+// Ketcher keeps focusing a hidden <textarea class="cliparea"> (used for copy/paste)
+// after every action. On phones that pops up the on-screen keyboard on each tap.
+// Tell the browser not to show a keyboard for that field (inputmode="none") and
+// make it read-only on touch devices; real inputs (atom label, search) keep working.
+function silenceCliparea(root: HTMLElement) {
+  root.querySelectorAll<HTMLTextAreaElement>("textarea.cliparea, textarea[data-cliparea]").forEach((el) => {
+    if (el.dataset.noKeyboard === "1") return;
+    el.dataset.noKeyboard = "1";
+    el.setAttribute("inputmode", "none");
+    el.setAttribute("autocomplete", "off");
+    el.setAttribute("autocorrect", "off");
+    el.setAttribute("autocapitalize", "off");
+    el.setAttribute("spellcheck", "false");
+    el.readOnly = true;
+    if (document.activeElement === el) el.blur();
+  });
+}
+
+const isTouchDevice = () =>
+  typeof window !== "undefined" &&
+  (window.matchMedia?.("(pointer: coarse)").matches || navigator.maxTouchPoints > 0);
+
 export function StructureEditor({ onFormulaCalculated, onClose, mode = "molecule", initialStructure }: StructureEditorProps) {
   const ketcherRef = useRef<any>(null);
+  const editorHostRef = useRef<HTMLDivElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    const host = editorHostRef.current;
+    if (!host || !isTouchDevice()) return;
+    silenceCliparea(host);
+    // Ketcher may (re)create the cliparea later, e.g. after dialogs
+    const observer = new MutationObserver(() => silenceCliparea(host));
+    observer.observe(host, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!ketcherRef.current || mode !== "molecule") return;
@@ -190,7 +223,7 @@ export function StructureEditor({ onFormulaCalculated, onClose, mode = "molecule
           {mode === "reaction" ? t("reactionEditorTitle") : t("structureEditorTitle")}
         </h3>
       </div>
-      <div className="relative flex-1 min-h-0 w-full" style={{ touchAction: "none" }}>
+      <div ref={editorHostRef} className="relative flex-1 min-h-0 w-full" style={{ touchAction: "none" }}>
         
         <Editor
           staticResourcesUrl={""}
