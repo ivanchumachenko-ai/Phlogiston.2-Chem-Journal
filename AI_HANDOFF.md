@@ -40,6 +40,15 @@ Phlogiston is a pure frontend React application designed to replace paper labora
 - A superscript/subscript toolbar (`FormatToolbar.tsx`) is implemented for the reaction conditions textarea. It uses an `onMouseDown` event (instead of `onClick`) with `e.preventDefault()` to prevent focus loss during text formatting.
 - PDF exports scale structures and text for A4 format (base font size 14px for readability). Structures do not have grey backgrounds (`bg-transparent` used in `ReactionScheme.tsx`).
 
+- **Procedure editor:** `ProcedureEditor.tsx` (font family/size, bulleted & numbered lists, Tab nesting) is used for the procedure and for "text" custom sections. Font settings are stored as `procedureStyle` / `section.style` and applied in `PrintSynthesis.tsx`. Helpers live in `lib/textStyle.ts`.
+- **Stoichiometry:** the per-row calculation (mass/moles/eq/volume, M and wt% solutions) lives in `lib/stoichiometry.ts` and is unit-tested.
+- **Molar mass:** `calculate_molar_mass` understands Unicode subscripts, hydrates (`·`, `•`, `*`) and common abbreviations (Ph, Me, Et, Bu, Ac, Ts, Boc, dba, acac, ...). `Pr` stays praseodymium; propyl is `nPr`/`iPr`.
+- **Ketcher:** `StructureEditor` is lazy-loaded (separate ~24 MB chunk, still precached by the service worker) and opens full-screen on phones.
+- **Build paths:** production builds use a relative base (`./`), so the same files work on GitHub Pages and from the offline ZIP. `client/public/phlogiston.zip` is not tracked; CI builds it.
+
+## Tests
+`npm test` (Vitest, `client/src/**/*.test.ts`). The GitHub Pages workflow runs the tests before building, so a failing test blocks the deploy.
+
 ## Development Workflow
 To run the project: `npm run dev:client`
 To build for production and generate the offline ZIP: `npm run build`

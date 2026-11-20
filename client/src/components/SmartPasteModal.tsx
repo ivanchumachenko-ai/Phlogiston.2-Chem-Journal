@@ -7,6 +7,52 @@ import { ReagentEntry } from "@/lib/export";
 import { getInventory } from "@/lib/storage";
 import { parseWithFreeAI } from "@/lib/ai";
 import { get_properties_async } from "@/lib/chemistry";
+import { getLang } from "@/lib/i18n";
+
+const copy = {
+  ru: {
+    analyzing: "Анализ текста...",
+    processing: (name: string) => `Обработка: ${name}`,
+    notRecognized: "Не удалось распознать вещества. Убедитесь, что текст содержит формат: 'Название (1.5 g, 10 mmol)' или 'Растворитель (20 mL)'.",
+    notRecognizedAi: "Не удалось распознать вещества или найденный текст — это просто посуда/предлоги. Убедитесь, что текст содержит формат: 'Название (1.5 g, 10 mmol)' или 'Растворитель (20 mL)'.",
+    done: "Готово!",
+    localError: "Ошибка локального распознавания",
+    waitingAi: "Ожидание ответа AI (около 5-10 сек)...",
+    fallback: "Переход к локальному распознаванию...",
+    lookup: (name: string, i: number, n: number) => `Поиск свойств для: ${name} (${i}/${n})`,
+    title: "Распознавание текста (Beta)",
+    description: "Вставьте фрагмент текста из методики статьи (Experimental Section). Приложение автоматически найдет вещества и добавит их в таблицу.",
+    example: "Пример поддерживаемого формата:",
+    scale: "Масштаб (множитель):",
+    scaleHint: "(например, 2 = увеличить в 2 раза)",
+    placeholder: "Вставьте текст методики на английском или русском...",
+    recognizing: "Распознавание...",
+    cancel: "Отмена",
+    local: "Обычный парсинг",
+    ai: "AI Парсинг",
+  },
+  en: {
+    analyzing: "Analyzing text...",
+    processing: (name: string) => `Processing: ${name}`,
+    notRecognized: "No substances recognized. Make sure the text uses the format 'Name (1.5 g, 10 mmol)' or 'Solvent (20 mL)'.",
+    notRecognizedAi: "No substances recognized, or the matches were only glassware/prepositions. Make sure the text uses the format 'Name (1.5 g, 10 mmol)' or 'Solvent (20 mL)'.",
+    done: "Done!",
+    localError: "Local parsing error",
+    waitingAi: "Waiting for the AI response (about 5-10 s)...",
+    fallback: "Switching to local parsing...",
+    lookup: (name: string, i: number, n: number) => `Looking up properties: ${name} (${i}/${n})`,
+    title: "Text recognition (Beta)",
+    description: "Paste a fragment of an experimental procedure. The app finds the substances and adds them to the table.",
+    example: "Example of a supported format:",
+    scale: "Scale (factor):",
+    scaleHint: "(e.g. 2 = double the amounts)",
+    placeholder: "Paste the procedure text in English or Russian...",
+    recognizing: "Recognizing...",
+    cancel: "Cancel",
+    local: "Standard parsing",
+    ai: "AI parsing",
+  },
+};
 
 interface SmartPasteModalProps {
   onAddEntries: (entries: ReagentEntry[], pastedText: string) => void;
@@ -22,6 +68,7 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
   const [progressText, setProgressText] = useState("");
   const [scaleFactor, setScaleFactor] = useState<string>("1");
   const cancelledRef = useRef(false);
+  const c = copy[getLang()];
 
   const handleCancel = () => {
     cancelledRef.current = true;
@@ -38,7 +85,7 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
       cancelledRef.current = false;
       if (!fallback) setIsLocalLoading(true);
       setProgress(10);
-      setProgressText("Анализ текста...");
+      setProgressText(c.analyzing);
       const inventory = getInventory();
       const entries: ReagentEntry[] = [];
       const foundReagents: string[] = [];
@@ -95,7 +142,7 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
         if (!validMatch) continue; // Skip garbage
         
         setProgress(p => Math.min(95, p + 10));
-        setProgressText(`Обработка: ${validMatch.name}`);
+        setProgressText(c.processing(validMatch.name));
         
         const { name, properties } = validMatch;
         const amount = parseFloat(match[2]) * scale;
@@ -153,7 +200,7 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
         if (!validMatch) continue;
         
         setProgress(p => Math.min(95, p + 10));
-        setProgressText(`Обработка: ${validMatch.name}`);
+        setProgressText(c.processing(validMatch.name));
         
         const { name, properties } = validMatch;
         const moles = parseFloat(match[2]) * scale;
@@ -204,7 +251,7 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
         if (!validMatch) continue;
         
         setProgress(p => Math.min(95, p + 10));
-        setProgressText(`Обработка: ${validMatch.name}`);
+        setProgressText(c.processing(validMatch.name));
         
         const { name, properties } = validMatch;
         const amount = parseFloat(match[2]) * scale;
@@ -247,14 +294,14 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
       }
 
       if (entries.length === 0) {
-        setError("Не удалось распознать вещества. Убедитесь, что текст содержит формат: 'Название (1.5 g, 10 mmol)' или 'Растворитель (20 mL)'.");
+        setError(c.notRecognized);
         setIsLocalLoading(false);
         return;
       }
 
       // Wait a tiny bit so user sees 100%
       setProgress(100);
-      setProgressText("Готово!");
+      setProgressText(c.done);
       await new Promise(r => setTimeout(r, 500));
       
       onAddEntries(entries, text);
@@ -265,7 +312,7 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
       setProgress(0);
     } catch (e: any) {
       if (cancelledRef.current) return;
-      setError(e.message || "Ошибка локального распознавания");
+      setError(e.message || c.localError);
     } finally {
       const fallback = isFallback === true;
       if (!fallback) setIsLocalLoading(false);
@@ -279,7 +326,7 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
     setIsAiLoading(true);
     setError("");
     setProgress(10);
-    setProgressText("Ожидание ответа AI (около 5-10 сек)...");
+    setProgressText(c.waitingAi);
     
     // Fake progress interval while waiting for AI
     const fakeProgressInterval = setInterval(() => {
@@ -297,7 +344,7 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
       
       if (!aiChemicals || aiChemicals.length === 0) {
         // Fallback to local parsing
-        setProgressText("Переход к локальному распознаванию...");
+        setProgressText(c.fallback);
         await parseTextLocal(true);
         setIsAiLoading(false);
         return;
@@ -316,7 +363,7 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
         if (cancelledRef.current) return;
         const chem = validAiChemicals[i];
         const name = String(chem.name || "Unknown");
-        setProgressText(`Поиск свойств для: ${name} (${i + 1}/${validAiChemicals.length})`);
+        setProgressText(c.lookup(name, i + 1, validAiChemicals.length));
         
         let massUnit: "mg" | "g" = "mg";
         if (chem.massUnit === 'g') massUnit = 'g';
@@ -376,14 +423,14 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
       const entries = parsedEntries.filter((e): e is ReagentEntry => e !== null);
 
       if (entries.length === 0) {
-        setError("Не удалось распознать вещества или найденный текст — это просто посуда/предлоги. Убедитесь, что текст содержит формат: 'Название (1.5 g, 10 mmol)' или 'Растворитель (20 mL)'.");
+        setError(c.notRecognizedAi);
         setIsAiLoading(false);
         return;
       }
       
       // Wait a tiny bit so user sees 100%
       setProgress(100);
-      setProgressText("Готово!");
+      setProgressText(c.done);
       await new Promise(r => setTimeout(r, 500));
       
       onAddEntries(entries, text);
@@ -396,7 +443,7 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
       if (cancelledRef.current) return;
       console.error("AI parse error:", e);
       // Fallback to local parsing on AI error
-      setProgressText("Переход к локальному распознаванию...");
+      setProgressText(c.fallback);
       await parseTextLocal(true);
     } finally {
       setIsAiLoading(false);
@@ -415,21 +462,21 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wand2 className="w-5 h-5 text-purple-500" />
-            Распознавание текста (Beta)
+            {c.title}
           </DialogTitle>
           <DialogDescription>
-            Вставьте фрагмент текста из методики статьи (Experimental Section). Приложение автоматически найдет вещества и добавит их в таблицу.
+            {c.description}
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4 py-2">
           <div className="text-xs text-muted-foreground bg-muted p-3 rounded-md">
-            <p className="font-medium mb-1">Пример поддерживаемого формата:</p>
+            <p className="font-medium mb-1">{c.example}</p>
             <p className="font-mono">To a solution of benzyl bromide (1.71 g, 10.0 mmol) in DMF (20 mL) was added K2CO3 (2.07 g, 15.0 mmol)...</p>
           </div>
           
           <div className="flex items-center gap-2 mb-2">
-             <span className="text-sm font-medium">Масштаб (множитель):</span>
+             <span className="text-sm font-medium">{c.scale}</span>
              <input 
                type="number" 
                min="0.01" 
@@ -438,11 +485,11 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
                value={scaleFactor}
                onChange={(e) => setScaleFactor(e.target.value)}
              />
-             <span className="text-xs text-muted-foreground">(например, 2 = увеличить в 2 раза)</span>
+             <span className="text-xs text-muted-foreground">{c.scaleHint}</span>
           </div>
           
           <Textarea 
-            placeholder="Вставьте текст методики на английском или русском..."
+            placeholder={c.placeholder}
             className="min-h-[150px] resize-none"
             value={text}
             onChange={(e) => {
@@ -461,7 +508,7 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
           {(isAiLoading || isLocalLoading) && (
             <div className="space-y-2 p-3 bg-muted/50 rounded-md">
               <div className="flex justify-between text-xs font-medium text-muted-foreground">
-                <span>{progressText || "Распознавание..."}</span>
+                <span>{progressText || c.recognizing}</span>
                 <span>{progress}%</span>
               </div>
               <div className="h-2 bg-secondary rounded-full overflow-hidden">
@@ -475,7 +522,7 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
         </div>
         
         <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button type="button" variant="secondary" onClick={handleCancel}>Отмена</Button>
+          <Button type="button" variant="secondary" onClick={handleCancel}>{c.cancel}</Button>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <Button 
               type="button"
@@ -489,7 +536,7 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
               ) : (
                 <Wand2 className="w-4 h-4" />
               )}
-              Обычный парсинг
+              {c.local}
             </Button>
             <Button 
               type="button"
@@ -502,7 +549,7 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
               ) : (
                 <Sparkles className="w-4 h-4" />
               )}
-              AI Парсинг
+              {c.ai}
             </Button>
           </div>
         </DialogFooter>

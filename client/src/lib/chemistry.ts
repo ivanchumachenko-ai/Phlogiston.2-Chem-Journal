@@ -15,11 +15,50 @@ const SUBSCRIPT_DIGITS: Record<string, string> = {
  * ignores superscript charges (Fe³⁺) and sums hydrate/adduct parts
  * separated by "·", "•" or "*" with an optional leading coefficient (CuSO4·5H2O).
  */
+/**
+ * Common organic abbreviations -> formula of the group.
+ * Pr is a real element (praseodymium), so propyl is only recognised as nPr / iPr.
+ * Ac (actinium) and Ts (tennessine) are treated as acetyl / tosyl.
+ */
+export const FORMULA_ABBREVIATIONS: Record<string, string> = {
+  // alkyl / aryl
+  Me: "CH3", Et: "C2H5", nPr: "C3H7", iPr: "C3H7", "n-Pr": "C3H7", "i-Pr": "C3H7",
+  Bu: "C4H9", Ph: "C6H5", Bn: "C7H7", Tol: "C7H7", Mes: "C9H11", Cy: "C6H11",
+  Cp: "C5H5", "Cp*": "C10H15",
+  // acyl / sulfonyl / protecting groups
+  Ac: "C2H3O", Bz: "C7H5O", Piv: "C5H9O", Ts: "C7H7SO2", Ms: "CH3SO2", Tf: "CF3SO2",
+  Boc: "C5H9O2", Cbz: "C8H7O2", Fmoc: "C15H11O2",
+  TMS: "C3H9Si", TES: "C6H15Si", TBS: "C6H15Si", TBDMS: "C6H15Si", TIPS: "C9H21Si", TBDPS: "C16H19Si",
+  Bpin: "C6H12BO2", HMDS: "C6H19NSi2",
+  // ligands / solvents
+  Py: "C5H5N", THF: "C4H8O", DMF: "C3H7NO", DMSO: "C2H6OS", DCM: "CH2Cl2",
+  dba: "C17H14O", cod: "C8H12", acac: "C5H7O2", dppf: "C34H28FeP2", dppe: "C26H24P2",
+  bpy: "C10H8N2", phen: "C12H8N2",
+};
+
+const ABBREVIATION_RE = new RegExp(
+  Object.keys(FORMULA_ABBREVIATIONS)
+    .sort((a, b) => b.length - a.length)
+    .map((k) => {
+      const esc = k.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
+      // lowercase ligands must stand alone; group names must not run into a lowercase letter
+      return /^[a-z]{3,}$/.test(k) ? `(?<![A-Za-z])${esc}(?![a-z])` : `${esc}(?![a-z])`;
+    })
+    .join("|"),
+  "g",
+);
+
+export function expandFormulaAbbreviations(formula: string): string {
+  return formula.replace(ABBREVIATION_RE, (m) => `(${FORMULA_ABBREVIATIONS[m]})`);
+}
+
 export function calculate_molar_mass(formula: string): number {
   if (!formula) return 0;
-  const normalized = formula
-    .replace(/[₀-₉]/g, (c) => SUBSCRIPT_DIGITS[c] || c)
-    .replace(/[⁰¹²³⁴-⁹⁺⁻₊₋]/g, "");
+  const normalized = expandFormulaAbbreviations(
+    formula
+      .replace(/[₀-₉]/g, (c) => SUBSCRIPT_DIGITS[c] || c)
+      .replace(/[⁰¹²³⁴-⁹⁺⁻₊₋]/g, ""),
+  );
   const parts = normalized.split(/[·•∙*]/);
   if (parts.length === 1) return calculate_simple_molar_mass(normalized);
   let total = 0;

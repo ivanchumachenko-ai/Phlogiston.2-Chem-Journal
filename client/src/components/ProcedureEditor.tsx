@@ -26,6 +26,10 @@ interface ProcedureEditorProps {
   placeholder?: string;
   label?: React.ReactNode;
   lang: "ru" | "en";
+  /** Show the keyboard hint under the field (the hint is always in the tooltip). */
+  showHint?: boolean;
+  minHeightClass?: string;
+  testId?: string;
 }
 
 const copy = {
@@ -51,7 +55,7 @@ const copy = {
 
 const LIST_LINE_RE = /^\s*(?:•|-|\*|\d+[.)])\s+/;
 
-export function ProcedureEditor({ id, value, onChange, style, onStyleChange, placeholder, label, lang }: ProcedureEditorProps) {
+export function ProcedureEditor({ id, value, onChange, style, onStyleChange, placeholder, label, lang, showHint = true, minHeightClass = "min-h-[160px]", testId }: ProcedureEditorProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const c = copy[lang];
 
@@ -173,12 +177,12 @@ export function ProcedureEditor({ id, value, onChange, style, onStyleChange, pla
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
-        className="min-h-[160px] resize-y leading-relaxed"
+        className={`${minHeightClass} resize-y leading-relaxed`}
         style={{ fontSize: `${style.fontSize}px`, fontFamily: fontCss(style.fontFamily) }}
         title={c.hint}
-        data-testid="textarea-synth-procedure"
+        data-testid={testId}
       />
-      <p className="text-[10px] text-muted-foreground">{c.hint}</p>
+      {showHint && <p className="text-[10px] text-muted-foreground">{c.hint}</p>}
     </div>
   );
 }

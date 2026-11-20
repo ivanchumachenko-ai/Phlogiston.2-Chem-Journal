@@ -426,7 +426,13 @@ export default function PrintSynthesis({
                     )}
                     
                     {section.type === "text" && (
-                      <div className="whitespace-pre-wrap font-mono text-[14px] leading-relaxed text-slate-700 bg-stone-50 p-4 rounded-[24px] border border-stone-200">
+                      <div
+                        className="whitespace-pre-wrap leading-relaxed text-slate-700 bg-stone-50 p-4 rounded-[24px] border border-stone-200"
+                        style={{
+                          fontSize: `${normalizeProcedureStyle(section.style).fontSize}px`,
+                          fontFamily: fontCss(normalizeProcedureStyle(section.style).fontFamily),
+                        }}
+                      >
                         {section.content}
                       </div>
                     )}

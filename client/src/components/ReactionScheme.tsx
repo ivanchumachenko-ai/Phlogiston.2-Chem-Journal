@@ -532,7 +532,7 @@ export function ReactionScheme({
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8 shrink-0 hidden md:flex"
+                className="h-8 w-8 shrink-0"
                 onClick={() => {
                   const event = new CustomEvent("openStructureEditor", {
                     detail: {

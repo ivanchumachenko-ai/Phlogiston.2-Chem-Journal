@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, GripVertical, Image as ImageIcon, Type, Table as TableIcon, CheckSquare, Square } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { CustomSectionData, CustomSectionType } from "@/lib/export";
+import { ProcedureEditor } from "@/components/ProcedureEditor";
+import { normalizeProcedureStyle } from "@/lib/textStyle";
 
 function evaluateCell(value: string, rows: string[][], visited = new Set<string>()): string {
   if (!value || typeof value !== 'string' || !value.startsWith("=")) return value;
@@ -207,12 +208,19 @@ export function CustomSectionManager({ sections = [], onChange, lang }: Props) {
   const renderContentEditor = (section: CustomSectionData) => {
     if (section.type === "text") {
       return (
-        <Textarea 
-          value={section.content}
-          onChange={(e) => updateSection(section.id, { content: e.target.value })}
-          placeholder={t.contentPlaceholder}
-          className="min-h-[100px] mt-2 text-sm"
-        />
+        <div className="mt-2">
+          <ProcedureEditor
+            id={`section-text-${section.id}`}
+            value={section.content}
+            onChange={(content) => updateSection(section.id, { content })}
+            style={normalizeProcedureStyle(section.style)}
+            onStyleChange={(style) => updateSection(section.id, { style })}
+            placeholder={t.contentPlaceholder}
+            lang={lang}
+            showHint={false}
+            minHeightClass="min-h-[100px]"
+          />
+        </div>
       );
     }
     
