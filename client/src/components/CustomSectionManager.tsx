@@ -62,6 +62,11 @@ function evaluateCell(value: string, rows: string[][], visited = new Set<string>
   }
 }
 
+interface TableData {
+  headers: string[];
+  rows: string[][];
+}
+
 interface Props {
   sections: CustomSectionData[];
   onChange: (sections: CustomSectionData[]) => void;
@@ -115,10 +120,10 @@ export function CustomSectionManager({ sections = [], onChange, lang }: Props) {
     const section = sections.find(s => s.id === sectionId);
     if (!section || section.type !== "table") return;
     
-    let data = { headers: [], rows: [] };
+    let data: TableData = { headers: [], rows: [] };
     try { data = JSON.parse(section.content); } catch (e) {}
     
-    const focusedValue = data.rows[focusedCell.rowIndex][focusedCell.colIndex];
+    const focusedValue = data.rows?.[focusedCell.rowIndex]?.[focusedCell.colIndex];
     if (typeof focusedValue === 'string' && focusedValue.startsWith("=")) {
       e.preventDefault(); // Prevent blur
       const cellAddress = `${String.fromCharCode(65 + clickedCol)}${clickedRow + 1}`;
@@ -245,7 +250,7 @@ export function CustomSectionManager({ sections = [], onChange, lang }: Props) {
     }
 
     if (section.type === "table") {
-      let data = { headers: [], rows: [] };
+      let data: TableData = { headers: [], rows: [] };
       try { data = JSON.parse(section.content); } catch (e) {}
       
       return (

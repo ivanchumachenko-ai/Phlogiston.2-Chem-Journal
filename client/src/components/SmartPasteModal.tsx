@@ -240,7 +240,7 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
         const invItem = inventory.find(i => i.name.toLowerCase() === name.toLowerCase());
         if (invItem) {
           if (invItem.formula && !properties.formula) entry.nameOrFormula = `${name} (${invItem.formula})`;
-          if (invItem.density && !properties.density) entry.density = parseFloat(invItem.density);
+          if (invItem.density && !properties.density) entry.density = parseFloat(String(invItem.density));
         }
 
         entries.push(entry);
@@ -345,8 +345,8 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
           molarMass: properties?.mw || 0,
           mass,
           massUnit,
-          volume,
-          volumeUnit: volUnit,
+          // The reagent table stores volume in mL
+          volume: volume !== undefined && volUnit === "uL" ? volume / 1000 : volume,
           moles,
           molesUnit,
           isReference: false,
@@ -359,7 +359,7 @@ export function SmartPasteModal({ onAddEntries }: SmartPasteModalProps) {
         const invItem = inventory.find(i => i.name.toLowerCase() === name.toLowerCase());
         if (invItem) {
           if (invItem.formula && !properties?.formula) entry.nameOrFormula = `${name} (${invItem.formula})`;
-          if (invItem.density && !properties?.density) entry.density = parseFloat(invItem.density);
+          if (invItem.density && !properties?.density) entry.density = parseFloat(String(invItem.density));
         } else if (!properties?.mw && entry.mass && entry.moles) {
           // Approximate molar mass
           let massInG = entry.massUnit === 'g' ? entry.mass : entry.mass / 1000;

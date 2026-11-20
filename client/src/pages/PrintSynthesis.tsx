@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ReactionScheme } from "@/components/ReactionScheme";
+import { fontCss, normalizeProcedureStyle } from "@/lib/textStyle";
 import { PDF_EXPORT_STORAGE_KEY, PublicationPdfPayload, ReagentEntry, CustomSectionData } from "@/lib/export";
 
 type PrintLabels = {
@@ -27,6 +28,13 @@ type PrintLabels = {
   moles: string;
   volume: string;
   density: string;
+  uiGram: string;
+  uiMg: string;
+  uiMl: string;
+  uiLiter: string;
+  uiMkl: string;
+  uiMmol: string;
+  uiMol: string;
 };
 
 const labels: Record<"ru" | "en", PrintLabels> = {
@@ -243,6 +251,7 @@ export default function PrintSynthesis({
 
   const generatedAt = new Date(payload.generatedAt).toLocaleString(lang === "ru" ? "ru-RU" : "en-US");
   const details = payload.details;
+  const procedureStyle = normalizeProcedureStyle(details.procedureStyle);
   const schemeData = normalizeSchemeData(payload);
   const pageTitle = details.title || details.productName || copy.title;
 
@@ -481,7 +490,10 @@ export default function PrintSynthesis({
           {details.procedure && (
             <section className="print-avoid-break mt-8">
               <div className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-slate-400">{copy.procedure}</div>
-              <div className="rounded-[24px] border border-stone-200 bg-stone-50 px-5 py-4 text-[14px] leading-relaxed text-slate-700 whitespace-pre-wrap">
+              <div
+                className="rounded-[24px] border border-stone-200 bg-stone-50 px-5 py-4 leading-relaxed text-slate-700 whitespace-pre-wrap"
+                style={{ fontSize: `${procedureStyle.fontSize}px`, fontFamily: fontCss(procedureStyle.fontFamily) }}
+              >
                 {details.procedure}
               </div>
             </section>

@@ -6,9 +6,11 @@ interface FormatToolbarProps {
   value: string;
   onChange: (val: string) => void;
   className?: string;
+  /** Render the buttons without the framed container (for embedding into another toolbar). */
+  bare?: boolean;
 }
 
-export function FormatToolbar({ elementId, value, onChange, className = "" }: FormatToolbarProps) {
+export function FormatToolbar({ elementId, value, onChange, className = "", bare = false }: FormatToolbarProps) {
   const handleFormat = (type: 'sub' | 'sup' | 'normal') => {
     const el = document.getElementById(elementId) as HTMLTextAreaElement | null;
     if (!el) return;
@@ -38,7 +40,7 @@ export function FormatToolbar({ elementId, value, onChange, className = "" }: Fo
   };
 
   return (
-    <div className={`flex items-center gap-1 bg-white p-1 rounded-md border border-stone-200 shadow-sm ${className}`}>
+    <div className={bare ? `flex items-center gap-1 ${className}` : `flex items-center gap-1 bg-white p-1 rounded-md border border-stone-200 shadow-sm ${className}`}>
       <Button 
         variant="ghost" 
         size="sm" 
