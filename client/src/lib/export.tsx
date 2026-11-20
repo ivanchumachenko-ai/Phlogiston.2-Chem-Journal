@@ -119,6 +119,10 @@ export function serializePortableSynthesis(entries: ReagentEntry[], details?: Sy
 }
 
 export function exportToTxt(entries: ReagentEntry[], details?: SynthesisDetails, inventoryLocFn?: (name: string, formula?: string) => string | null) {
+  return saveFile(buildTxtReportFile(entries, details, inventoryLocFn));
+}
+
+export function buildTxtReportFile(entries: ReagentEntry[], details?: SynthesisDetails, inventoryLocFn?: (name: string, formula?: string) => string | null): File {
   let content = "Phlogiston Report\n================\n\n";
 
   if (details && (details.title || details.number)) {
@@ -186,10 +190,14 @@ export function exportToTxt(entries: ReagentEntry[], details?: SynthesisDetails,
   content += `${serializePortableSynthesis(entries, details)}\n`;
   content += `${TXT_EXPORT_JSON_END}\n`;
 
-  downloadFile(content, "chemcalc_report.txt", "text/plain");
+  return new File([content], reportFileName(details, "txt"), { type: "text/plain;charset=utf-8" });
 }
 
 export function exportToCsv(entries: ReagentEntry[], details?: SynthesisDetails, inventoryLocFn?: (name: string, formula?: string) => string | null) {
+  return saveFile(buildCsvReportFile(entries, details, inventoryLocFn));
+}
+
+export function buildCsvReportFile(entries: ReagentEntry[], details?: SynthesisDetails, inventoryLocFn?: (name: string, formula?: string) => string | null): File {
   let content = "";
 
   if (details && (details.title || details.number || details.formula || details.productName || details.productMass || details.yield)) {
@@ -250,7 +258,23 @@ export function exportToCsv(entries: ReagentEntry[], details?: SynthesisDetails,
   content += "\nPortable Data\n";
   content += `Export JSON,${escapeCsvValue(serializePortableSynthesis(entries, details))}\n`;
 
-  downloadFile(content, "chemcalc_report.csv", "text/csv");
+  // BOM so Excel opens Cyrillic text correctly
+  return new File(["\uFEFF" + content], reportFileName(details, "csv"), { type: "text/csv;charset=utf-8" });
+}
+
+/** PDF + TXT + CSV for one synthesis. The PDF is skipped (null) if it could not be generated. */
+export async function buildAllReportFiles(
+  entries: ReagentEntry[],
+  details: SynthesisDetails,
+  lang: "ru" | "en",
+  inventoryLocFn?: (name: string, formula?: string) => string | null,
+): Promise<File[]> {
+  const files: File[] = [];
+  const pdf = await renderPublicationPdfBlob(entries, details, lang, inventoryLocFn);
+  if (pdf) files.push(new File([pdf], reportFileName(details, "pdf"), { type: "application/pdf" }));
+  files.push(buildTxtReportFile(entries, details, inventoryLocFn));
+  files.push(buildCsvReportFile(entries, details, inventoryLocFn));
+  return files;
 }
 
 export async function openPublicationPdf(entries: ReagentEntry[], details: SynthesisDetails, lang: "ru" | "en", inventoryLocFn?: (name: string, formula?: string) => string | null, rootElement?: HTMLElement) {
@@ -282,6 +306,28 @@ export async function openPublicationPdf(entries: ReagentEntry[], details: Synth
     }
     return;
   }
+
+  const blob = await renderPublicationPdfBlob(entries, details, lang, inventoryLocFn);
+  if (blob) {
+    try {
+      await saveFile(new File([blob], reportFileName(details, "pdf"), { type: "application/pdf" }));
+    } catch {
+      // ignore: saveFile already falls back to a plain download
+    }
+  }
+}
+
+/**
+ * Render the publication view in a hidden iframe and turn it into a PDF.
+ * Returns null (after alerting the user) when generation fails.
+ */
+export async function renderPublicationPdfBlob(
+  entries: ReagentEntry[],
+  details: SynthesisDetails,
+  lang: "ru" | "en",
+  inventoryLocFn?: (name: string, formula?: string) => string | null,
+): Promise<Blob | null> {
+  let resultBlob: Blob | null = null;
 
   // Create a hidden iframe to render the print view for capture
   const iframe = document.createElement('iframe');
@@ -564,16 +610,7 @@ export async function openPublicationPdf(entries: ReagentEntry[], details: Synth
 
           pdf.addImage(imgData, "JPEG", xOffset, yOffset, pdfWidth, pdfHeight);
 
-          const filename = `${details.title || details.productName || "Synthesis"}_Report.pdf`.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
-          
-          try {
-            // Try robust download using Blob first
-            const blob = pdf.output("blob");
-            await downloadBlob(blob, filename);
-          } catch (e) {
-            // Fallback to jsPDF's built-in save
-            pdf.save(filename);
-          }
+          resultBlob = pdf.output("blob");
           
         } catch (error) {
           console.error("PDF generation failed:", error);
@@ -626,41 +663,80 @@ export async function openPublicationPdf(entries: ReagentEntry[], details: Synth
        resolve();
     };
   });
+
+  return resultBlob;
 }
 
-async function downloadBlob(blob: Blob, filename: string) {
-  // On mobile (iOS Safari), Web Share API is often more reliable for PDFs
-  if (navigator.share && navigator.canShare) {
+// ---------- File names & saving ----------
+
+/** "12_Suzuki coupling.pdf" — synthesis number + title (or product), safe for file systems. */
+export function reportFileName(details: SynthesisDetails | undefined, ext: "pdf" | "txt" | "csv"): string {
+  const title = (details?.title || details?.productName || "").trim();
+  const number = (details?.number || "").trim();
+  const base = [number, title].filter(Boolean).join("_") || "Phlogiston_report";
+  const safe = base
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+  return `${safe}.${ext}`;
+}
+
+const isTouchDevice = () =>
+  typeof window !== "undefined" &&
+  (window.matchMedia?.("(pointer: coarse)").matches || navigator.maxTouchPoints > 0);
+
+/** Can these files go through the system share sheet (phones / tablets)? */
+export function canShareFiles(files: File[]): boolean {
+  try {
+    return isTouchDevice() && !!navigator.share && !!navigator.canShare && navigator.canShare({ files });
+  } catch {
+    return false;
+  }
+}
+
+function downloadViaLink(file: Blob, filename: string) {
+  const url = URL.createObjectURL(file);
+  const a = document.createElement("a");
+  a.style.display = "none";
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+/**
+ * Save one or more files.
+ * Phones/tablets: one share sheet with all files ("Save to Files" etc.).
+ * Desktop: regular downloads, one after another (browsers drop downloads fired in the same tick).
+ * Throws the share error when the share sheet could not be opened, e.g. NotAllowedError when the
+ * click gesture expired during PDF generation — the caller can then ask for one more tap.
+ */
+export async function saveFiles(files: File[], options: { allowShare?: boolean } = {}): Promise<"shared" | "downloaded" | "cancelled"> {
+  if (options.allowShare !== false && canShareFiles(files)) {
     try {
-      const file = new File([blob], filename, { type: 'application/pdf' });
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: filename,
-        });
-        return; // Success
-      }
-    } catch (e) {
-      console.warn("Share API failed or was aborted, falling back to download link", e);
+      await navigator.share({ files, title: files.map((f) => f.name).join(", ") });
+      return "shared";
+    } catch (e: any) {
+      if (e?.name === "AbortError") return "cancelled";
+      if (e?.name === "NotAllowedError") throw e;
+      console.warn("Share failed, falling back to downloads", e);
     }
   }
-
-  try {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.style.display = "none";
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
-  } catch (e: any) {
-    throw new Error("Download link failed: " + e.message);
+  for (let i = 0; i < files.length; i++) {
+    if (i > 0) await new Promise((r) => setTimeout(r, 400));
+    downloadViaLink(files[i], files[i].name);
   }
+  return "downloaded";
 }
 
-function downloadFile(content: string, filename: string, mimeType: string) {
-  const blob = new Blob([content], { type: mimeType });
-  downloadBlob(blob, filename);
+export async function saveFile(file: File) {
+  try {
+    await saveFiles([file]);
+  } catch {
+    // Share sheet not allowed any more (gesture expired): plain download instead
+    downloadViaLink(file, file.name);
+  }
 }
