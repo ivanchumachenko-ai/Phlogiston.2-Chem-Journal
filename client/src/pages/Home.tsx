@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { calculate_molar_mass, get_properties_async, ChemicalProperties } from "@/lib/chemistry";
-import { ReagentEntry, SynthesisDetails, exportToTxt, exportToCsv, openPublicationPdf } from "@/lib/export";
+import { ReagentEntry, SynthesisDetails, exportToTxt, exportToCsv, openPublicationPdf, buildAllReportFiles, saveFiles } from "@/lib/export";
+import { ToastAction } from "@/components/ui/toast";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { parseTxtSynthesis, parseCsvSynthesis } from "@/lib/importTxt";
 import { getClosestDensity, ACID_DENSITIES } from "@/lib/densityDb";
 import { Button } from "@/components/ui/button";
@@ -12,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Download, Trash2, Beaker, Calculator, RefreshCw, ChevronRight, Scale, Droplet, ArrowRight, FlaskConical, Loader2, Moon, Sun, PenTool, Languages, Star } from "lucide-react";
+import { ChevronDown, MoreHorizontal, Plus, Download, Trash2, Beaker, Calculator, RefreshCw, ChevronRight, Scale, Droplet, ArrowRight, FlaskConical, Loader2, Moon, Sun, PenTool, Languages, Star } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -431,6 +433,48 @@ export default function Home() {
     productMolfile: synthMolfile,
     reactionScheme: synthReactionScheme,
   });
+
+  const [isDownloadingReport, setIsDownloadingReport] = useState(false);
+
+  const exportPdfOnly = () => {
+    const rootElement = document.getElementById("root");
+    openPublicationPdf(entries, buildSynthesisDetails(), lang, findLocation, rootElement || undefined);
+  };
+
+  // One click -> PDF + TXT + CSV
+  const handleDownloadAllReports = async () => {
+    if (isDownloadingReport) return;
+    setIsDownloadingReport(true);
+    try {
+      const files = await buildAllReportFiles(entries, buildSynthesisDetails(), lang, findLocation);
+      const pdfMissing = !files.some((f) => f.name.endsWith(".pdf"));
+      try {
+        const result = await saveFiles(files);
+        if (result !== "cancelled") {
+          toast({
+            title: t('uiReportSaved'),
+            description: pdfMissing ? t('uiReportPdfFailed') : files.map((f) => f.name).join(", "),
+            variant: pdfMissing ? "destructive" : undefined,
+          });
+        }
+      } catch {
+        // Phones: the tap expired while the PDF was being generated, so the share sheet
+        // can't open by itself. Ask for one more tap.
+        toast({
+          title: t('uiReportReady'),
+          description: t('uiReportTapToSave'),
+          duration: 60000,
+          action: (
+            <ToastAction altText={t('headerSave')} onClick={() => { saveFiles(files).catch(() => saveFiles(files, { allowShare: false })); }}>
+              {t('headerSave')}
+            </ToastAction>
+          ),
+        });
+      }
+    } finally {
+      setIsDownloadingReport(false);
+    }
+  };
 
   const handleSaveSynthesis = () => {
     if (entries.length === 0) {
@@ -1552,25 +1596,34 @@ export default function Home() {
                  <Save className="w-4 h-4" />
                  {t('headerSave')}
                </Button>
-               <Button variant="outline" size="sm" className="gap-2" onClick={() => {
-                const rootElement = document.getElementById("root");
-                if (rootElement) {
-                  openPublicationPdf(entries, buildSynthesisDetails(), lang, findLocation, rootElement);
-                } else {
-                  openPublicationPdf(entries, buildSynthesisDetails(), lang, findLocation);
-                }
-              }} data-testid="button-export-pdf">
-                  <FileText className="w-4 h-4" />
-                  PDF
-               </Button>
-               <Button variant="outline" size="sm" className="gap-2" onClick={() => exportToTxt(entries, buildSynthesisDetails(), findLocation)} data-testid="button-export-txt">
-                  <Download className="w-4 h-4" />
-                  TXT
-               </Button>
-               <Button variant="outline" size="sm" className="gap-2" onClick={() => exportToCsv(entries, buildSynthesisDetails(), findLocation)} data-testid="button-export-csv">
-                  <Download className="w-4 h-4" />
-                  CSV
-               </Button>
+               <div className="flex items-center">
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   className="gap-2 rounded-r-none"
+                   onClick={handleDownloadAllReports}
+                   disabled={isDownloadingReport}
+                   title={t('uiDownloadReportHint')}
+                   data-testid="button-download-report"
+                 >
+                   {isDownloadingReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                   {isDownloadingReport ? t('uiReportPreparing') : t('uiDownloadReport')}
+                 </Button>
+                 <DropdownMenu>
+                   <DropdownMenuTrigger asChild>
+                     <Button variant="outline" size="sm" className="rounded-l-none border-l-0 px-2" disabled={isDownloadingReport} aria-label={t('uiOneFormat')} data-testid="button-download-report-menu">
+                       <ChevronDown className="w-4 h-4" />
+                     </Button>
+                   </DropdownMenuTrigger>
+                   <DropdownMenuContent align="end">
+                     <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">{t('uiOneFormat')}</DropdownMenuLabel>
+                     <DropdownMenuSeparator />
+                     <DropdownMenuItem onClick={exportPdfOnly} data-testid="button-export-pdf"><FileText className="w-4 h-4 mr-2" />PDF</DropdownMenuItem>
+                     <DropdownMenuItem onClick={() => exportToTxt(entries, buildSynthesisDetails(), findLocation)} data-testid="button-export-txt"><Download className="w-4 h-4 mr-2" />TXT</DropdownMenuItem>
+                     <DropdownMenuItem onClick={() => exportToCsv(entries, buildSynthesisDetails(), findLocation)} data-testid="button-export-csv"><Download className="w-4 h-4 mr-2" />CSV</DropdownMenuItem>
+                   </DropdownMenuContent>
+                 </DropdownMenu>
+               </div>
              </div>
            )}
         </div>
@@ -2318,21 +2371,30 @@ export default function Home() {
           <Button size="lg" className="rounded-full w-14 h-14 shadow-xl bg-primary text-primary-foreground" onClick={handleSaveSynthesis} data-testid="button-save-synthesis-mobile">
             <Save className="w-6 h-6" />
           </Button>
-          <Button size="lg" className="rounded-full w-14 h-14 shadow-xl bg-slate-900 text-white hover:bg-slate-800" onClick={() => {
-            const rootElement = document.getElementById("root");
-            if (rootElement) {
-              openPublicationPdf(entries, buildSynthesisDetails(), lang, findLocation, rootElement);
-            } else {
-              openPublicationPdf(entries, buildSynthesisDetails(), lang, findLocation);
-            }
-          }} data-testid="button-export-pdf-mobile">
-            <span className="font-bold text-xs">PDF</span>
-          </Button>
-          <Button size="lg" className="rounded-full w-14 h-14 shadow-xl bg-secondary text-secondary-foreground hover:bg-secondary/80" onClick={() => exportToTxt(entries, buildSynthesisDetails(), findLocation)} data-testid="button-export-txt-mobile">
-            <span className="font-bold text-xs">TXT</span>
-          </Button>
-          <Button size="lg" className="rounded-full w-14 h-14 shadow-xl" onClick={() => exportToCsv(entries, buildSynthesisDetails(), findLocation)} data-testid="button-export-csv-mobile">
-            <span className="font-bold text-xs">CSV</span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="secondary" className="rounded-full w-14 h-9 shadow-xl" disabled={isDownloadingReport} aria-label={t('uiOneFormat')} title={t('uiOneFormat')} data-testid="button-download-report-menu-mobile">
+                <MoreHorizontal className="w-5 h-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="left">
+              <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">{t('uiOneFormat')}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={exportPdfOnly} data-testid="button-export-pdf-mobile">PDF</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportToTxt(entries, buildSynthesisDetails(), findLocation)} data-testid="button-export-txt-mobile">TXT</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportToCsv(entries, buildSynthesisDetails(), findLocation)} data-testid="button-export-csv-mobile">CSV</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            size="lg"
+            className="rounded-full w-14 h-14 shadow-xl bg-slate-900 text-white hover:bg-slate-800"
+            onClick={handleDownloadAllReports}
+            disabled={isDownloadingReport}
+            aria-label={t('uiDownloadReport')}
+            title={t('uiDownloadReportHint')}
+            data-testid="button-download-report-mobile"
+          >
+            {isDownloadingReport ? <Loader2 className="w-6 h-6 animate-spin" /> : <Download className="w-6 h-6" />}
           </Button>
         </div>
       )}
