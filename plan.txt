@@ -1,1 +1,0 @@
-Tell user to clear cache on phone.

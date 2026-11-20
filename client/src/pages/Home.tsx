@@ -157,9 +157,10 @@ export default function Home() {
     setLang(newLang);
   };
 
+  // Resolve next to the current page, so it works on GitHub Pages and locally
   const downloadUrl = typeof window !== "undefined"
-    ? new URL(`${import.meta.env.BASE_URL}phlogiston.zip`, window.location.origin).toString()
-    : `${import.meta.env.BASE_URL}phlogiston.zip`;
+    ? new URL("phlogiston.zip", window.location.href).toString()
+    : "phlogiston.zip";
   const macDownloadCommand = `curl -L "${downloadUrl}" -o phlogiston.zip`;
   const macExtractCommand = "unzip phlogiston.zip -d phlogiston-offline";
   const macRunCommand = "cd phlogiston-offline && python3 -m http.server 8000";
@@ -1472,7 +1473,7 @@ export default function Home() {
                         <p>{t('helpDownloadText')}</p>
                         <div className="flex flex-col sm:flex-row gap-3 mt-1">
                           <a
-                            href={`${import.meta.env.BASE_URL}phlogiston.zip`}
+                            href="phlogiston.zip"
                             download="phlogiston.zip"
                             className="bg-primary text-primary-foreground hover:bg-primary/90 transition-colors px-4 py-2.5 rounded-md font-medium inline-flex items-center justify-center gap-2 text-sm shadow-sm"
                             data-testid="link-download-pwa"
