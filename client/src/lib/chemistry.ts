@@ -6,7 +6,32 @@ export const ATOMIC_WEIGHTS: Record<string, number> = {
   Cs: 132.91, Ba: 137.33, La: 138.91, Ce: 140.12, Pr: 140.91, Nd: 144.24, Pm: 145, Sm: 150.36, Eu: 151.96, Gd: 157.25, Tb: 158.93, Dy: 162.50, Ho: 164.93, Er: 167.26, Tm: 168.93, Yb: 173.05, Lu: 174.97, Hf: 178.49, Ta: 180.95, W: 183.84, Re: 186.21, Os: 190.23, Ir: 192.22, Pt: 195.08, Au: 196.97, Hg: 200.59, Tl: 204.38, Pb: 207.2, Bi: 208.98
 };
 
+const SUBSCRIPT_DIGITS: Record<string, string> = {
+  '₀': '0', '₁': '1', '₂': '2', '₃': '3', '₄': '4', '₅': '5', '₆': '6', '₇': '7', '₈': '8', '₉': '9',
+};
+
+/**
+ * Molar mass of a formula. Understands Unicode subscripts (C₆H₁₂O₆),
+ * ignores superscript charges (Fe³⁺) and sums hydrate/adduct parts
+ * separated by "·", "•" or "*" with an optional leading coefficient (CuSO4·5H2O).
+ */
 export function calculate_molar_mass(formula: string): number {
+  if (!formula) return 0;
+  const normalized = formula
+    .replace(/[₀-₉]/g, (c) => SUBSCRIPT_DIGITS[c] || c)
+    .replace(/[⁰¹²³⁴-⁹⁺⁻₊₋]/g, "");
+  const parts = normalized.split(/[·•∙*]/);
+  if (parts.length === 1) return calculate_simple_molar_mass(normalized);
+  let total = 0;
+  for (const part of parts) {
+    const m = part.trim().match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
+    const coef = m ? parseFloat(m[1]) : 1;
+    total += coef * calculate_simple_molar_mass(m ? m[2] : part);
+  }
+  return Math.round(total * 1000) / 1000;
+}
+
+function calculate_simple_molar_mass(formula: string): number {
   if (!formula) return 0;
   
   let currentPos = 0;

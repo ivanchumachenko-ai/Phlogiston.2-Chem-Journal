@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ReactionScheme } from "@/components/ReactionScheme";
+import { calculate_molar_mass } from "@/lib/chemistry";
 import { fontCss, normalizeProcedureStyle } from "@/lib/textStyle";
 import { PDF_EXPORT_STORAGE_KEY, PublicationPdfPayload, ReagentEntry, CustomSectionData } from "@/lib/export";
 
@@ -22,7 +23,9 @@ type PrintLabels = {
   scheme: string;
   location: string;
   compound: string;
-  role: string;
+  concentration: string;
+  productMw: string;
+  uiGPerMol: string;
   mw: string;
   eq: string;
   moles: string;
@@ -56,7 +59,9 @@ const labels: Record<"ru" | "en", PrintLabels> = {
     scheme: "Схема реакции",
     location: "Локация",
     compound: "Соединение",
-    role: "Роль",
+    concentration: "Концентрация",
+    productMw: "М.М. продукта",
+    uiGPerMol: "г/моль",
     mw: "М.М., г/моль",
     eq: "Экв.",
     moles: "Количество",
@@ -88,7 +93,9 @@ const labels: Record<"ru" | "en", PrintLabels> = {
     scheme: "Reaction scheme",
     location: "Location",
     compound: "Compound",
-    role: "Role",
+    concentration: "Concentration",
+    productMw: "Product MW",
+    uiGPerMol: "g/mol",
     mw: "MW, g/mol",
     eq: "Eq.",
     moles: "Amount",
@@ -109,14 +116,12 @@ function formatValue(value?: number, digits = 2) {
   return value.toFixed(digits);
 }
 
-function formatRole(entry: ReagentEntry, lang: "ru" | "en") {
-  if (entry.isReference) {
-    return lang === "ru" ? "Референс" : "Reference";
-  }
-  if (entry.isSolution) {
-    return lang === "ru" ? "Раствор" : "Solution";
-  }
-  return lang === "ru" ? "Реагент" : "Reagent";
+function formatConcentration(entry: ReagentEntry) {
+  const parts: string[] = [];
+  const trim = (v: number) => String(parseFloat(v.toFixed(3)));
+  if (entry.concentrationM !== undefined && !Number.isNaN(entry.concentrationM)) parts.push(`${trim(entry.concentrationM)} M`);
+  if (entry.concentrationWt !== undefined && !Number.isNaN(entry.concentrationWt)) parts.push(`${trim(entry.concentrationWt)} wt%`);
+  return parts.length ? parts.join(", ") : "—";
 }
 
 function normalizeSchemeData(payload: PublicationPdfPayload) {
@@ -252,6 +257,15 @@ export default function PrintSynthesis({
   const generatedAt = new Date(payload.generatedAt).toLocaleString(lang === "ru" ? "ru-RU" : "en-US");
   const details = payload.details;
   const procedureStyle = normalizeProcedureStyle(details.procedureStyle);
+  const productMw = (() => {
+    if (!details.formula) return 0;
+    try {
+      const mw = calculate_molar_mass(details.formula);
+      return Number.isFinite(mw) && mw > 0 ? mw : 0;
+    } catch {
+      return 0;
+    }
+  })();
   const schemeData = normalizeSchemeData(payload);
   const pageTitle = details.title || details.productName || copy.title;
 
@@ -319,7 +333,7 @@ export default function PrintSynthesis({
               </div>
             </div>
 
-            <div className="mt-6 grid gap-3 md:grid-cols-4">
+            <div className="mt-6 grid gap-3 grid-cols-2 md:grid-cols-5">
               <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
                 <div className="text-[11px] uppercase tracking-widest text-slate-400">{copy.product}</div>
                 <div className="mt-1 text-sm font-semibold text-slate-900">{details.productName || "—"}</div>
@@ -327,6 +341,10 @@ export default function PrintSynthesis({
               <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
                 <div className="text-[11px] uppercase tracking-widest text-slate-400">{copy.formula}</div>
                 <div className="mt-1 text-sm font-semibold text-slate-900">{details.formula || "—"}</div>
+              </div>
+              <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
+                <div className="text-[11px] uppercase tracking-widest text-slate-400">{copy.productMw}</div>
+                <div className="mt-1 text-sm font-semibold text-slate-900">{productMw ? `${productMw.toFixed(2)} ${copy.uiGPerMol}` : "—"}</div>
               </div>
               <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
                 <div className="text-[11px] uppercase tracking-widest text-slate-400">{copy.mass}</div>
@@ -362,8 +380,8 @@ export default function PrintSynthesis({
               <table className="w-full table-fixed border-collapse text-left text-[14px]" style={{ wordBreak: "break-word" }}>
                 <thead className="bg-stone-50 text-slate-600">
                   <tr>
-                    <th className="border border-slate-300 px-2 py-2 font-semibold w-[22%]">{copy.compound}</th>
-                    <th className="border border-slate-300 px-2 py-2 font-semibold w-[10%]">{copy.role}</th>
+                    <th className="border border-slate-300 px-2 py-2 font-semibold w-[20%]">{copy.compound}</th>
+                    <th className="border border-slate-300 px-2 py-2 font-semibold w-[12%]">{copy.concentration}</th>
                     <th className="border border-slate-300 px-2 py-2 font-semibold w-[9%]">{copy.mw}</th>
                     <th className="border border-slate-300 px-2 py-2 font-semibold w-[8%]">{copy.eq}</th>
                     <th className="border border-slate-300 px-2 py-2 font-semibold w-[10%]">{copy.moles}</th>
@@ -377,7 +395,7 @@ export default function PrintSynthesis({
                   {payload.entries.map((entry) => (
                     <tr key={entry.id} className="align-top border-b border-slate-300 last:border-b-0">
                       <td className="border border-slate-300 px-2 py-2 font-medium text-slate-900">{entry.nameOrFormula}</td>
-                      <td className="border border-slate-300 px-2 py-2 text-slate-700">{formatRole(entry, lang)}</td>
+                      <td className="border border-slate-300 px-2 py-2 text-slate-700">{formatConcentration(entry)}</td>
                       <td className="border border-slate-300 px-2 py-2 text-slate-700">{formatValue(entry.molarMass, 2)}</td>
                       <td className="border border-slate-300 px-2 py-2 text-slate-700">{formatValue(entry.equivalents, 2)}</td>
                       <td className="border border-slate-300 px-2 py-2 text-slate-700">{formatMoles(entry.moles, copy)}</td>
