@@ -29,6 +29,8 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: npm install
+      - name: Run tests
+        run: npm test
       - name: Build site
         run: npm run build
       - name: Unzip ready files

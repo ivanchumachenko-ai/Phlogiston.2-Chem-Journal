@@ -9,3 +9,6 @@ vite.config.ts.*
 .upm
 public_html/
 dist/
+
+# Built by `npm run build` (GitHub Actions publishes a fresh copy)
+client/public/phlogiston.zip

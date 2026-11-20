@@ -42,6 +42,8 @@ export interface CustomSectionData {
   title: string;
   content: string;
   order: number;
+  /** Font settings for "text" sections */
+  style?: ProcedureStyle;
 }
 
 export interface SynthesisDetails {

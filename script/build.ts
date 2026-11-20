@@ -66,8 +66,7 @@ async function buildAll() {
   try {
     execSync("rm -f dist/public/phlogiston.zip", { stdio: "inherit" });
     execSync("cd dist/public && zip -r phlogiston.zip ./*", { stdio: "inherit" });
-    execSync("cp dist/public/phlogiston.zip client/public/phlogiston.zip", { stdio: "inherit" });
-    console.log("Offline archive created at dist/public/phlogiston.zip and copied to client/public/");
+    console.log("Offline archive created at dist/public/phlogiston.zip");
   } catch (e) {
     console.error("Failed to create zip archive", e);
   }

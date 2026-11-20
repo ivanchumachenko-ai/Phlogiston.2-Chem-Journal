@@ -26,10 +26,13 @@ import React, { useRef } from "react";
 import * as XLSX from "xlsx";
 import { SmartPasteModal } from "@/components/SmartPasteModal";
 
-import { StructureEditor } from "@/components/StructureEditor";
+// Ketcher is heavy (several MB): load the editor only when it is opened
+const StructureEditor = React.lazy(() =>
+  import("@/components/StructureEditor").then((m) => ({ default: m.StructureEditor })),
+);
 import { ReactionScheme, ReactionSchemeData } from "@/components/ReactionScheme";
 
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { t, getLang, setLang, Language } from "@/lib/i18n";
 
 function resolveReagentLabel(input: string, props: ChemicalProperties | null): string {
@@ -93,6 +96,7 @@ function normalizeReactionSchemeData(scheme?: SynthesisDetails["reactionScheme"]
 }
 
 import { ProcedureEditor } from "@/components/ProcedureEditor";
+import { calculateReagentAmounts } from "@/lib/stoichiometry";
 import { DEFAULT_PROCEDURE_STYLE, normalizeProcedureStyle, type ProcedureStyle } from "@/lib/textStyle";
 
 export default function Home() {
@@ -833,130 +837,39 @@ export default function Home() {
     const isFirst = entries.length === 0;
     const dens = parseFloat(density);
     const hasDensity = !isNaN(dens) && dens > 0;
-    const concM = parseFloat(concentrationM);
-    const hasConcM = !isNaN(concM) && concM > 0;
-    const concWt = parseFloat(concentrationWt);
-    const hasConcWt = !isNaN(concWt) && concWt > 0;
 
-    let newMass: number | undefined;
-    let newMoles: number | undefined;
-    let newEq: number | undefined;
-    let volume: number | undefined;
-    let solutionMass: number | undefined;
-    let finalConcentrationM: number | undefined;
-    let finalConcentrationWt: number | undefined;
-
-    if (calcMode === "mass") {
-      const massInMg = massUnit === "g" ? val * 1000 : val;
-      newMass = massInMg;
-      newMoles = massInMg / molarMass;
-    } else if (calcMode === "moles") {
-      const molesInMmol = molesUnit === "mol" ? val * 1000 : val;
-      newMoles = molesInMmol;
-      newMass = molesInMmol * molarMass;
-    } else if (calcMode === "eq") {
-      if (isFirst) {
-        newEq = 1;
-        const baseMoles = molesUnit === "mol" ? 1000 : 1;
-        newMoles = val * baseMoles;
-        newMass = newMoles * molarMass;
-      } else if (referenceEntry?.moles) {
-        newEq = val;
-        newMoles = val * referenceEntry.moles;
-        newMass = newMoles * molarMass;
-      } else {
-        toast({
-          title: t('error'),
-          description: t('errorNoReference'),
-          variant: "destructive"
-        });
-        return;
-      }
-    } else if (calcMode === "volume") {
-      const volumeInMl = volumeUnit === "uL" ? val / 1000 : val;
-      volume = volumeInMl;
-
-      if (isSolution) {
-        if (concentrationInputMode === "wt") {
-          if (!hasDensity) {
-            toast({
-              title: t('error'),
-              description: t('errorVolumeNeedsDensity'),
-              variant: "destructive"
-            });
-            return;
-          }
-          if (!hasConcWt) {
-            toast({
-              title: t('error'),
-              description: t('errorSolutionNeedsConcentration'),
-              variant: "destructive"
-            });
-            return;
-          }
-          solutionMass = volumeInMl * dens * 1000;
-          newMass = solutionMass * (concWt / 100);
-          newMoles = newMass / molarMass;
-          finalConcentrationWt = concWt;
-        } else {
-          if (!hasConcM) {
-            toast({
-              title: t('error'),
-              description: t('errorSolutionNeedsConcentration'),
-              variant: "destructive"
-            });
-            return;
-          }
-          newMoles = volumeInMl * concM;
-          newMass = newMoles * molarMass;
-          finalConcentrationM = concM;
-          if (hasDensity) {
-            solutionMass = volumeInMl * dens * 1000;
-          }
-        }
-      } else {
-        if (!hasDensity) {
-          toast({
-            title: t('error'),
-            description: t('errorVolumeNeedsDensity'),
-            variant: "destructive"
-          });
-          return;
-        }
-        newMass = volumeInMl * dens * 1000;
-        newMoles = newMass / molarMass;
-      }
+    const calc = calculateReagentAmounts({
+      calcMode,
+      value: val,
+      massUnit,
+      molesUnit,
+      volumeUnit,
+      molarMass,
+      isFirst,
+      referenceMoles: referenceEntry?.moles,
+      density: hasDensity ? dens : undefined,
+      isSolution,
+      concentrationInputMode,
+      concentrationM: parseFloat(concentrationM),
+      concentrationWt: parseFloat(concentrationWt),
+    });
+    if (!calc.ok) {
+      toast({
+        title: t('error'),
+        description: t(calc.error),
+        variant: "destructive"
+      });
+      return;
     }
-
-    if (newEq === undefined) {
-      if (isFirst) {
-        newEq = 1;
-      } else if (referenceEntry?.moles && newMoles !== undefined) {
-        newEq = newMoles / referenceEntry.moles;
-      }
-    }
-
-    if (isSolution && calcMode !== "volume") {
-      if (concentrationInputMode === "wt") {
-        if (hasConcWt && newMass !== undefined) {
-          solutionMass = newMass / (concWt / 100);
-          if (hasDensity) {
-            volume = (solutionMass / 1000) / dens;
-          }
-          finalConcentrationWt = concWt;
-        }
-      } else if (hasConcM && newMoles !== undefined) {
-        volume = newMoles / concM;
-        finalConcentrationM = concM;
-        if (hasDensity) {
-          solutionMass = volume * dens * 1000;
-        }
-      } else if (hasDensity && newMass !== undefined) {
-        volume = (newMass / 1000) / dens;
-      }
-    } else if (!isSolution && calcMode !== "volume" && hasDensity && newMass !== undefined) {
-      volume = (newMass / 1000) / dens;
-    }
+    const {
+      mass: newMass,
+      moles: newMoles,
+      equivalents: newEq,
+      volume,
+      solutionMass,
+      concentrationM: finalConcentrationM,
+      concentrationWt: finalConcentrationWt,
+    } = calc.result;
 
     const hasManualStructure = Boolean(inputMolfile || inputSmiles);
     const mergedProperties = {
@@ -1520,7 +1433,7 @@ export default function Home() {
                       {t('headerHistory')}
                     </SheetTitle>
                     <SheetDescription>
-                      Ваши сохраненные расчеты
+                      {t('uiSavedCalculations')}
                     </SheetDescription>
                   </SheetHeader>
                   <div className="mt-6 flex flex-col gap-4">
@@ -1530,11 +1443,11 @@ export default function Home() {
                         setIsDesktopHistoryOpen(false);
                       }}>
                         <Plus className="w-4 h-4" />
-                        Новый
+                        {t('uiNew')}
                       </Button>
                       <Button variant="outline" className="flex-1 justify-start gap-2" onClick={() => fileInputRef.current?.click()}>
                         <Upload className="w-4 h-4" />
-                        База (Excel)
+                        {t('uiDatabaseExcel')}
                       </Button>
                     </div>
 
@@ -1702,7 +1615,7 @@ export default function Home() {
                       ) : null}
                     </div>
                   </div>
-                  <div className="hidden md:block">
+                  <div>
                     <Button 
                       variant="outline" 
                       size="icon"
@@ -2282,7 +2195,7 @@ export default function Home() {
                             className="h-8"
                             data-testid="input-product-formula"
                           />
-                          <div className="hidden md:block">
+                          <div>
                             <Button 
                               variant="outline" 
                               size="icon"
@@ -2377,6 +2290,7 @@ export default function Home() {
                         onStyleChange={setProcedureStyle}
                         placeholder={t('synthProcedurePlaceholder')}
                         lang={lang}
+                        testId="textarea-synth-procedure"
                         label={<Label htmlFor="synthProcedure" className="text-xs text-muted-foreground">{t('synthProcedure')}</Label>}
                       />
                       
@@ -2394,7 +2308,7 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="fixed bottom-1 right-2 text-[10px] text-slate-500 z-[100] pointer-events-none">
+      <footer className="fixed bottom-1 right-2 text-[10px] text-slate-500 z-40 pointer-events-none">
         made by Ivan Chumachenko
       </footer>
 
@@ -2425,7 +2339,18 @@ export default function Home() {
 
       {/* Structure Editor */}
       <Dialog open={isStructureEditorOpen !== false} onOpenChange={(open) => !open && setIsStructureEditorOpen(false)}>
-        <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 overflow-hidden border-none bg-transparent shadow-none">
+        <DialogContent
+          className="p-0 overflow-hidden border-none bg-transparent shadow-none w-screen h-[100dvh] max-w-none rounded-none sm:rounded-none md:w-full md:h-auto md:max-w-4xl md:rounded-lg"
+          aria-describedby={undefined}
+        >
+          <DialogTitle className="sr-only">{isStructureEditorOpen === "reaction" ? t("reactionEditorTitle") : t("structureEditorTitle")}</DialogTitle>
+          <React.Suspense
+            fallback={
+              <div className="flex h-[100dvh] md:h-[600px] w-full items-center justify-center rounded-none md:rounded-lg bg-white dark:bg-zinc-950 text-sm text-muted-foreground gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> {t("processing")}
+              </div>
+            }
+          >
           <StructureEditor 
             key={String(isStructureEditorOpen)}
             mode={isStructureEditorOpen === "reaction" ? "reaction" : "molecule"}
@@ -2472,6 +2397,7 @@ export default function Home() {
               setIsStructureEditorOpen(false);
             }}
           />
+          </React.Suspense>
         </DialogContent>
       </Dialog>
     </div>
