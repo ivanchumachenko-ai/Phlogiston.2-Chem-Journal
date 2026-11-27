@@ -1,3 +1,4 @@
+import { UpdatePreference } from "@/components/UpdatePreference";
 import { LaunchStatistics } from "@/components/LaunchStatistics";
 import { isPinnedApp } from "@/lib/launchStatistics";
 import { useState, useEffect } from "react";
@@ -1233,6 +1234,7 @@ export default function Home() {
                 </div>
                     <ScrollArea className="flex-1 px-6 pb-6 overflow-y-auto">
                   <div className="space-y-6 text-sm">
+                    <UpdatePreference lang={lang} />
                     <LaunchStatistics lang={lang} network={fetch} />
                     {/* Введение и безопасность */}
                     <div className="space-y-3">

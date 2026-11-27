@@ -1,12 +1,12 @@
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
-import { isPinnedApp, openPinnedApp, recordLaunch } from "./lib/launchStatistics";
+import { isPinnedApp, openPreferredApp, recordLaunch } from "./lib/launchStatistics";
 // @ts-ignore
 import { registerSW } from "virtual:pwa-register";
 
-function start() {
-  if (openPinnedApp()) return;
+async function start() {
+  if (await openPreferredApp().catch(() => false)) return;
   if (import.meta.env.DEV && "serviceWorker" in navigator) {
     navigator.serviceWorker.getRegistrations().then((registrations) => {
       registrations.forEach((registration) => {
@@ -39,4 +39,4 @@ function start() {
   createRoot(document.getElementById("root")!).render(<App />);
 }
 
-start();
+void start();
