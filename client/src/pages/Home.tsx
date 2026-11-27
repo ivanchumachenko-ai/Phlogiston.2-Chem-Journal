@@ -1,3 +1,5 @@
+import { LaunchStatistics } from "@/components/LaunchStatistics";
+import { isPinnedApp } from "@/lib/launchStatistics";
 import { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { calculate_molar_mass, get_properties_async, ChemicalProperties } from "@/lib/chemistry";
@@ -165,7 +167,7 @@ export default function Home() {
 
   // Resolve next to the current page, so it works on GitHub Pages and locally
   const downloadUrl = typeof window !== "undefined"
-    ? new URL("phlogiston.zip", window.location.href).toString()
+    ? new URL(isPinnedApp ? "../phlogiston.zip" : "phlogiston.zip", window.location.href).toString()
     : "phlogiston.zip";
   const macDownloadCommand = `curl -L "${downloadUrl}" -o phlogiston.zip`;
   const macExtractCommand = "unzip phlogiston.zip -d phlogiston-offline";
@@ -1231,6 +1233,7 @@ export default function Home() {
                 </div>
                     <ScrollArea className="flex-1 px-6 pb-6 overflow-y-auto">
                   <div className="space-y-6 text-sm">
+                    <LaunchStatistics lang={lang} network={fetch} />
                     {/* Введение и безопасность */}
                     <div className="space-y-3">
                       <p className="text-muted-foreground leading-relaxed">
@@ -1430,7 +1433,7 @@ export default function Home() {
                         <p>{t('helpDownloadText')}</p>
                         <div className="flex flex-col sm:flex-row gap-3 mt-1">
                           <a
-                            href="phlogiston.zip"
+                            href={isPinnedApp ? "../phlogiston.zip" : "phlogiston.zip"}
                             download="phlogiston.zip"
                             className="bg-primary text-primary-foreground hover:bg-primary/90 transition-colors px-4 py-2.5 rounded-md font-medium inline-flex items-center justify-center gap-2 text-sm shadow-sm"
                             data-testid="link-download-pwa"

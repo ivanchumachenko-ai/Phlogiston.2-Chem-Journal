@@ -71,7 +71,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html}", "LICENSE", "THIRD_PARTY_NOTICES.txt", "licenses/*"],
         maximumFileSizeToCacheInBytes: 30000000,
-        navigateFallbackDenylist: [/phlogiston\.zip$/],
+        navigateFallbackDenylist: [/phlogiston\.zip$/, /\/installed(?:\/|$)/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/pubchem\.ncbi\.nlm\.nih\.gov\/rest\/pug\/compound\/cid\/.*\/PNG/,
